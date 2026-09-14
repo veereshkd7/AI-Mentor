@@ -1,0 +1,30 @@
+# ── Backend (ai-mentor-backend) ───────────────────────────────────────────────
+ai-mentor-backend/target/
+ai-mentor-backend/.env
+ai-mentor-backend/.env.*
+ai-mentor-backend/!.env.example
+ai-mentor-backend/*.log
+
+# IDE / Eclipse
+ai-mentor-backend/.settings/
+ai-mentor-backend/.classpath
+ai-mentor-backend/.project
+ai-mentor-backend/.factorypath
+ai-mentor-backend/.mvn/wrapper/maven-wrapper.jar
+
+# ── Frontend (ai-mentor-frontend) ─────────────────────────────────────────────
+ai-mentor-frontend/node_modules/
+ai-mentor-frontend/dist/
+ai-mentor-frontend/.env
+ai-mentor-frontend/.env.*
+ai-mentor-frontend/!.env.example
+ai-mentor-frontend/*.log
+
+# ── OS / Editor ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
