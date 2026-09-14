@@ -1,152 +1,218 @@
-
-# 🤖 **AI Mentor**
-
-AI-powered learning assistance to authenticated users.An AI-powered learning API that generates roadmaps, concept explanations, interview Q&A, and quizzes — built with Spring Boot and Google Gemini.
-
-[![Java](https://img.shields.io/badge/Java-21-ED8B00?style=flat&logo=openjdk&logoColor=white)](https://openjdk.org/projects/jdk/21/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5-6DB33F?style=flat&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
-[![Spring AI](https://img.shields.io/badge/Spring%20AI-1.0.0-6DB33F?style=flat&logo=spring&logoColor=white)](https://spring.io/projects/spring-ai)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?style=flat&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
+# 🚀 Deployment Guide — AI Mentor (Mono-Repo)
 
 ---
 
-## What It Does
+## Repo Structure
 
-Send a topic + skill level → get structured AI content back.
+Everything lives in one GitHub repository:
 
-| Endpoint | What you get |
-|----------|-------------|
-| `POST /api/v1/mentor/roadmap` | Phased learning plan with resources and milestones |
-| `POST /api/v1/mentor/explain` | Deep explanation with analogies and code examples |
-| `POST /api/v1/mentor/interview` | Interview Q&A pairs with model answers |
-| `POST /api/v1/mentor/quiz` | Multiple-choice quiz with explanations |
-| `GET /api/v1/mentor/history` | Browse and reload past sessions |
+```
+ai-mentor/
+├── ai-mentor-backend/    ← Spring Boot
+├── ai-mentor-frontend/   ← React + Vite
+└── README.md
+```
 
-Every response is stored in **Cloudinary** (full JSON) and **PostgreSQL** (preview), so sessions persist across restarts.
-
----
-
-## Stack
-
-- **Spring Boot 3.5 + Java 21** — core framework
-- **Spring AI 1.0.0** — provider-agnostic LLM abstraction (`ChatClient`)
-- **Google Gemini 2.0 Flash** — free tier via OpenAI-compatible endpoint
-- **PostgreSQL + Spring Data JPA** — users, sessions, audit logs
-- **JWT (HS256)** — 5h access token + 30d refresh token with silent rotation
-- **Bucket4j** — per-IP rate limiting
-- **Cloudinary** — AI session result storage
-- **Docker** — multi-stage, non-root image
+Backend deploys from **Railway**, frontend from **Vercel** — both pointed at the same repo, different root directories.
 
 ---
 
-## Quick Start
-
-**Prerequisites:** Java 21, Maven 3.9+, PostgreSQL (or Docker), free [Gemini API key](https://aistudio.google.com/app/apikey)
+## Step 1 — Create the Mono-Repo
 
 ```bash
-# 1. Start PostgreSQL
-docker run -d --name pg -e POSTGRES_DB=aimentordb -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:15-alpine
+mkdir ai-mentor && cd ai-mentor
 
-# 2. Set required env vars
-export GEMINI_API_KEY=your_key_here
-export JWT_SECRET=$(openssl rand -hex 32)
-export CLOUDINARY_CLOUD_NAME=your_cloud
-export CLOUDINARY_API_KEY=your_api_key
-export CLOUDINARY_API_SECRET=your_secret
+# Copy both project folders in
+cp -r /path/to/ai-mentor-backend ./ai-mentor-backend
+cp -r /path/to/ai-mentor-frontend ./ai-mentor-frontend
 
-# 3. Run
-./mvnw spring-boot:run
-```
+# Root .gitignore
+cat > .gitignore << 'IGNORE'
+# Backend
+ai-mentor-backend/target/
+ai-mentor-backend/.env
 
-Swagger UI → `http://localhost:8080/swagger-ui.html`
+# Frontend
+ai-mentor-frontend/node_modules/
+ai-mentor-frontend/dist/
+ai-mentor-frontend/.env
+ai-mentor-frontend/.env.local
 
----
+*.log
+*.class
+.DS_Store
+IGNORE
 
-## Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `GEMINI_API_KEY` | ✅ | Free key from [aistudio.google.com](https://aistudio.google.com/app/apikey) |
-| `JWT_SECRET` | ✅ | 64-char hex string for JWT signing |
-| `DB_HOST` / `DB_NAME` / `DB_PASSWORD` | ✅ | PostgreSQL connection |
-| `CLOUDINARY_CLOUD_NAME` / `API_KEY` / `API_SECRET` | ✅ | Cloudinary credentials |
-| `GEMINI_MODEL` | No | Default: `gemini-2.0-flash` |
-
-Copy `.env.example` → `.env` and fill in your values.
-
----
-
-## API — Quick Reference
-
-**Register / Login**
-```bash
-POST /api/v1/auth/register   body: { username, email, password }
-POST /api/v1/auth/login      body: { username, password }
-# → returns { accessToken, refreshToken, expiresIn }
-```
-
-**Generate content** (Bearer token required)
-```bash
-POST /api/v1/mentor/roadmap
-body: { "topic": "Spring Boot", "level": "intermediate", "questionCount": 10 }
-# → { success, sessionId, content, cloudinaryUrl, durationMs }
-```
-
-**Token management**
-```bash
-POST /api/v1/auth/silent-refresh   # rotate tokens without re-login
-GET  /api/v1/auth/token-status     # seconds remaining + warn/urgent flags
-POST /api/v1/auth/logout
+git init
+git add .
+git commit -m "feat: initial mono-repo — AI Mentor backend + frontend"
 ```
 
 ---
 
-## Security Highlights
-
-- BCrypt (strength 12) password hashing
-- Brute-force protection — locks account after 5 failed attempts for 30 min
-- Refresh token rotation — old token invalidated on every use
-- Rate limiting — 10 req/min on auth + AI endpoints, 60 req/min general
-- Strict CSP + HSTS headers on every response
-- Full audit log — every auth event and AI call recorded to DB
-
----
-
-## Docker
+## Step 2 — Push to GitHub
 
 ```bash
-docker build -t ai-mentor-backend .
+# Create a new repo on github.com first (name it: ai-mentor), then:
 
-docker run -d -p 8080:8080 \
-  -e GEMINI_API_KEY=your_key \
-  -e JWT_SECRET=your_secret \
-  -e DB_HOST=your_host \
-  -e DB_PASSWORD=your_password \
-  -e CLOUDINARY_CLOUD_NAME=your_cloud \
-  -e CLOUDINARY_API_KEY=your_key \
-  -e CLOUDINARY_API_SECRET=your_secret \
-  ai-mentor-backend
-```
-
-Health check → `GET /actuator/health`
-
----
-
-## Project Structure
-
-```
-src/main/java/com/aimentor/
-├── config/        AiConfig, SecurityConfig, JwtProperties, CloudinaryConfig
-├── controller/    AuthController, MentorController, UserController
-├── service/       AiMentorService, AuthService, SessionService, UserService
-├── entity/        User, MentorSession, AuditLog
-├── filter/        JwtAuthFilter, RateLimitFilter, SecurityHeadersFilter
-├── dto/           Request and response DTOs
-├── repository/    Spring Data JPA interfaces
-└── exception/     GlobalExceptionHandler + custom exceptions
+git remote add origin https://github.com/your-username/ai-mentor.git
+git branch -M main
+git push -u origin main
 ```
 
 ---
 
-> Built with 2 years of hands-on experience · Java 21 · Spring Boot 3.5 · Spring AI 1.0.0
+## Step 3 — Deploy Backend on Railway
+
+### 3.1 Create account + project
+Go to **[railway.app](https://railway.app)** → sign in with GitHub
+
+```
+New Project → Deploy from GitHub repo → select ai-mentor
+```
+
+### 3.2 Set the root directory
+Railway needs to know the backend is in a subfolder:
+
+```
+Service Settings → Source → Root Directory → ai-mentor-backend
+```
+
+### 3.3 Add PostgreSQL
+```
+In your project → + New → Database → Add PostgreSQL
+```
+
+Note the **Host, Port, Password** from the PostgreSQL service Variables tab.
+
+### 3.4 Set environment variables
+Go to **backend service → Variables** and add:
+
+```
+GEMINI_API_KEY          = your_key (aistudio.google.com/app/apikey)
+JWT_SECRET              = (run: openssl rand -hex 32)
+DB_HOST                 = (from Railway PostgreSQL → Host)
+DB_PORT                 = (from Railway PostgreSQL → Port)
+DB_NAME                 = railway
+DB_USER                 = postgres
+DB_PASSWORD             = (from Railway PostgreSQL → Password)
+CLOUDINARY_CLOUD_NAME   = your_cloud_name
+CLOUDINARY_API_KEY      = your_api_key
+CLOUDINARY_API_SECRET   = your_api_secret
+GEMINI_MODEL            = gemini-2.0-flash
+```
+
+### 3.5 Get your backend URL
+```
+Service Settings → Networking → Generate Domain
+→ https://ai-mentor-backend-xxxx.railway.app
+```
+**Save this — you need it for the frontend.**
+
+---
+
+## Step 4 — Deploy Frontend on Vercel
+
+### 4.1 Create account
+Go to **[vercel.com](https://vercel.com)** → sign in with GitHub
+
+### 4.2 Import the same repo
+```
+New Project → Import → select ai-mentor (same repo)
+```
+
+### 4.3 Set the root directory
+Vercel also needs to know the frontend is in a subfolder:
+
+```
+Root Directory → ai-mentor-frontend
+```
+
+Confirm build settings:
+```
+Framework Preset : Vite
+Build Command    : npm run build
+Output Directory : dist
+Install Command  : npm install
+```
+
+### 4.4 Set environment variable
+```
+VITE_API_BASE_URL = https://ai-mentor-backend-xxxx.railway.app/api/v1
+```
+
+### 4.5 Deploy
+Click **Deploy** → Vercel gives you:
+```
+https://ai-mentor.vercel.app
+```
+
+---
+
+## Step 5 — Fix CORS
+
+Add your Vercel URL to the backend allowed origins.
+
+In Railway → backend **Variables**, add or update:
+```
+cors.allowedorigins = https://ai-mentor.vercel.app,http://localhost:5173
+```
+
+Railway auto-redeploys after saving variables.
+
+---
+
+## Step 6 — Verify
+
+```bash
+# Backend health
+curl https://ai-mentor-backend-xxxx.railway.app/actuator/health
+# → {"status":"UP"}
+
+# Open frontend
+open https://ai-mentor.vercel.app
+```
+
+---
+
+## How Future Deploys Work
+
+```bash
+# Make any change in either folder, then:
+git add .
+git commit -m "fix: your change here"
+git push origin main
+
+# Railway redeploys backend automatically (only if backend files changed)
+# Vercel redeploys frontend automatically (only if frontend files changed)
+```
+
+Both platforms are smart enough to detect which subfolder changed.
+
+---
+
+## Final Checklist
+
+```
+Repo
+  □ Both folders inside one repo (ai-mentor-backend/ and ai-mentor-frontend/)
+  □ Root .gitignore covers both projects
+  □ Pushed to GitHub
+
+Railway (Backend)
+  □ Root Directory set to ai-mentor-backend
+  □ PostgreSQL service added
+  □ All 11 environment variables set
+  □ Backend URL copied
+
+Vercel (Frontend)
+  □ Same GitHub repo selected
+  □ Root Directory set to ai-mentor-frontend
+  □ VITE_API_BASE_URL set to Railway backend URL
+  □ Deployed successfully
+
+Connect
+  □ Vercel URL added to cors.allowedorigins on Railway
+  □ Health check passes
+  □ Register + Login works end to end
+```
